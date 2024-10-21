@@ -1,0 +1,46 @@
+name: Release to App Store
+
+# Define the events that trigger the workflow
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Define the type of runner to be used for this job
+    runs-on: self-hosted
+
+    steps:
+      # Check out the code from the repository
+      - name: Checkout the code
+        uses: actions/checkout@v4
+
+      # Execute Fastlane
+      - name: Setup & Release
+        run: |
+          echo "📦 Installing dependencies ..."
+          source ~/.bash_profile
+          bundle config set --local path 'Pods'
+          bundle install
+          echo "🔑 Adding key ..."
+          echo -n "$ASC_KEY" | base64 --decode > /tmp/AuthKey.p8
+          echo "🚢 Shipping ..."
+          bundle exec fastlane ios upload
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }} # This is the password used by match to encrypt and decrypt the repository containing your certificates and provisioning profiles.
+          FASTLANE_USER: ${{ secrets.FASTLANE_USER }} # used by Fastlane to log in to the Apple Developer portal and App Store Connect.
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }} # This is the app specific password of the Apple account
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }} # used by fastlane to authenticate with the App Store Connect API.
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }} # used by fastlane to authenticate with the App Store Connect API.
+          ASC_KEY: ${{ secrets.ASC_KEY }} # used by fastlane to authenticate with the App Store Connect API.
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }} # used to clone the certificates repository.
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }} # used by fastlane to authenticate with Firebase.
+          CERTS_TOKEN: ${{ secrets.CERTS_TOKEN }}
+
+      - name: Print log if fastlane fails
+        if: failure()
+        run: cat /Users/runner/Library/Logs/gym/Road2Crypto-Road2Crypto.log
+
+      # Clean up environment configuration files
+      - name: Cleanup workspace
+        if: always()
+        uses: ./.github/actions/cleanup
